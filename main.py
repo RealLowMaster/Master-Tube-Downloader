@@ -1,8 +1,8 @@
-from tkinter import Tk, Label, Entry, StringVar, Button, Frame, filedialog, ttk
-from tkinter.constants import CENTER, DISABLED, W, LEFT
+from threading import Thread
+from tkinter import Tk, Label, Entry, StringVar, Button, Frame, Scrollbar, messagebox, filedialog, ttk
+from tkinter.constants import CENTER, DISABLED, END, W, LEFT
 from PIL import ImageTk, Image
 import requests
-from io import BytesIO
 import pafy
 
 win = Tk()
@@ -10,7 +10,7 @@ win.title("Master Tube Downloader v1.0.0")
 win.iconbitmap('./icon.ico')
 
 win_width = 500
-win_height = 600
+win_height = 510
 screen_width = win.winfo_screenwidth()
 screen_height = win.winfo_screenheight()
 win.geometry(f"{win_width}x{win_height}+{int((screen_width/2)-(win_width/2))}+{int((screen_height/2)-(win_height/2))}")
@@ -19,27 +19,37 @@ win.resizable(False, False)
 # Global Values
 path = ""
 yt = None
-yt_streams = None
-dl_enable = False
+yt_streams_index = None
+yt_quality_choises = None
+downloadList = []
+downloadListCounter = 0
 
 """ functions """
-def url_callback(value):
-	global dl_enable
+def bytesto(bytes, to, bsize=1024):
+	a = {'k' : 1, 'm': 2, 'g' : 3, 't' : 4, 'p' : 5, 'e' : 6 }
+	r = float(bytes)
+	for i in range(a[to]):
+		r = r / bsize
+
+	return int(r)
+
+def get_youtube():
 	global yt
-	global yt_streams
-	dl_enable = False
+	global yt_streams_index
+	global yt_quality_choises
 	yt = None
-	yt_streams = None
-	url = value.get()
-	errMsgLabel.config(text="Video Not Found", fg='red')
+	yt_streams_index = None
+	yt_quality_choises = None
+	url = youtubeInput.get()
+	errMsgLabel.config(text="Video Not Found or There is no Format For it", fg='red')
 	overviewImageLabel.configure(image=None)
 	overviewImageLabel.image = None
 	overviewTitleLabel.config(text="")
 	overviewTimeLabel.config(text="")
 	qualitySelector.config(values=None, state=DISABLED)
+	downloadButton.config(state=DISABLED)
 	if (len(url) > 10):
 		yt = pafy.new(url)
-		dl_enable = True
 		errMsgLabel.config(text="Video Found", fg='green')
 		overviewImage = ImageTk.PhotoImage(Image.open(requests.get(yt.thumb, stream=True).raw).resize((190, 140), Image.ANTIALIAS))
 		overviewImageLabel.configure(image=overviewImage)
@@ -48,35 +58,65 @@ def url_callback(value):
 		overviewTimeLabel.config(text=yt.duration)
 
 		videos = []
+		videos_index = []
 		audios = []
-		print(yt.allstreams)
+		audios_index = []
 		for i in range(0, len(yt.allstreams)):
-			if (yt.allstreams[i].extension == 'mp4' and videos.count(yt.allstreams[i].quality) == 0):
-				videos.append(yt.allstreams[i].quality)
+			if (yt.allstreams[i].extension == 'mp4' and videos.count('Video: '+yt.allstreams[i].quality+'p') == 0):
+				videos.append('Video: '+yt.allstreams[i].quality+'p')
+				videos_index.append(i)
 			elif (yt.allstreams[i].extension == 'mp3' or yt.allstreams[i].extension == 'm4a'):
-				if (audios.count(yt.allstreams[i].quality) == 0):
-					audios.append(yt.allstreams[i].quality)
+				if (audios.count('Audio: '+yt.allstreams[i].quality) == 0):
+					audios.append('Audio: '+yt.allstreams[i].quality)
+					audios_index.append(i)
 		
-		print("=================================")
-		print(videos)
-		print("=================================")
-		print(audios)
-		print("=================================")
-		for i in audios:
-			videos.append(i)
-		print("=================================")
+		for i in range(0, len(audios)):
+			videos.append(audios[i])
+			videos_index.append(audios_index[i])
+		
+		yt_quality_choises = videos
+		yt_streams_index = videos_index
 		qualitySelector.config(values=videos, state='readonly')
+		downloadButton.config(state='normal')
 	else:
 		errMsgLabel.config(text="Please Enter a Url", fg='red')
 
+def input_callback():
+	t = Thread(target=get_youtube)
+	t.daemon = True
+	t.start()
+
+def chooseLoaction():
+	global path
+	path = filedialog.askdirectory()
+	if (len(path) > 3):
+		errSavePathMsgLabel.config(text=path, fg='green')
+	else:
+		errSavePathMsgLabel.config(text='Please Choose a Location.', fg='red')
+
+def Download():
+	if (len(path) > 3):
+		choosed = yt_quality_choises.count(qualitySelector.get())
+		if (choosed == 1):
+			global downloadListCounter
+			index = yt_quality_choises.index(qualitySelector.get())
+			downloadList.append([yt, yt_streams_index[index], path])
+			downloadListWidget.insert(parent='', index=END, iid=downloadListCounter, values=(yt.title, yt_quality_choises[index], bytesto(yt.allstreams[yt_streams_index[index]].get_filesize(), 'm')))
+			yt.allstreams[yt_streams_index[index]].download(filepath=path)
+			downloadListCounter += 1
+		else:
+			messagebox.showerror(title="Quality Error!", message="Please Choose a Quality.")
+	else:
+		messagebox.showerror(title="Location Error!", message="Please Choose a Location For Saving Downloaded Videos.")
+
 # Make Tabs
+# https://www.youtube.com/watch?v=5Xx5AwhsJmw
 tabControl = ttk.Notebook(win)
 mainTab = ttk.Frame(tabControl)
 downloadListTab = ttk.Frame(tabControl)
 tabControl.add(mainTab, text='Main')
 tabControl.add(downloadListTab, text='Downloads')
 tabControl.pack(expand=1, fill="both")
-
 
 """ mainTab Widgets """
 # YouTube Label
@@ -85,7 +125,7 @@ youtubeLabel.place(relx=0.5, anchor=CENTER, y=20)
 
 # YouTube Url Input
 youtubeInputVar = StringVar()
-youtubeInputVar.trace("w", lambda name, index, mode, youtubeInputVar=youtubeInputVar: url_callback(youtubeInputVar))
+youtubeInputVar.trace("w", lambda name, index, mode, youtubeInputVar=youtubeInputVar: input_callback())
 youtubeInput = Entry(mainTab, width=50, textvariable=youtubeInputVar)
 youtubeInput.place(relx=0.5, anchor=CENTER, y=50)
 
@@ -108,11 +148,11 @@ savePathLabel = Label(mainTab, text="Save Location", font=("monospace", 15, "bol
 savePathLabel.place(relx=0.5, anchor=CENTER, y=275)
 
 # Choosing Saving Path Button
-savePathButton = Button(mainTab, text="Choose Location", bg="red", fg="white", font=("monospace", 9, "bold"))
+savePathButton = Button(mainTab, text="Choose Location", bg="red", fg="white", font=("monospace", 9, "bold"), command=chooseLoaction)
 savePathButton.place(relx=0.5, anchor=CENTER, y=310)
 
 # Error Saving Path Message Label
-errSavePathMsgLabel = Label(mainTab, text="", font=("monospace", 11))
+errSavePathMsgLabel = Label(mainTab, font=("monospace", 11))
 errSavePathMsgLabel.place(relx=0.5, anchor=CENTER, y=338)
 
 # Quality Label
@@ -124,8 +164,35 @@ qualitySelector = ttk.Combobox(mainTab, font=("monospace", 10), state=DISABLED)
 qualitySelector.place(relx=0.5, anchor=CENTER, y=400)
 
 # Download Button
-downloadButton = Button(mainTab, text="Download", bg="red", fg="white", font=("monospace", 13, "bold"))
+downloadButton = Button(mainTab, text="Download", bg="red", fg="white", font=("monospace", 13, "bold"), state=DISABLED, command=Download)
 downloadButton.place(relx=0.5, anchor=CENTER, y=445)
+
+""" downloadListTab Tab Widgets """
+# Download List Vertical Scrollbar
+downloadListVerticalScrollbar = Scrollbar(downloadListTab)
+downloadListVerticalScrollbar.place(width=20, height=400, x=480, y=0)
+
+# Download List Horizontal Scrollbar
+downloadListHorizontalScrollbar = Scrollbar(downloadListTab, orient='horizontal')
+downloadListHorizontalScrollbar.place(width=500, height=20, x=0, y=400)
+
+# Download List Widget
+downloadListWidget = ttk.Treeview(downloadListTab, yscrollcommand=downloadListVerticalScrollbar.set, xscrollcommand=downloadListHorizontalScrollbar.set)
+
+# Set Download List Scrollbars
+downloadListVerticalScrollbar.config(command=downloadListWidget.yview)
+downloadListHorizontalScrollbar.config(command=downloadListWidget.xview)
+
+# Set Download List Columns
+downloadListWidget['show'] = 'headings'
+downloadListWidget['columns'] = ('Name', 'Quality', 'Size')
+downloadListWidget.column('Name', minwidth=25, width=100)
+downloadListWidget.column('Quality', minwidth=25)
+downloadListWidget.column('Size', minwidth=5, width=25)
+downloadListWidget.heading('Name', text='Name')
+downloadListWidget.heading('Quality', text='Quality')
+downloadListWidget.heading('Size', text='Size')
+downloadListWidget.place(width=480, height=400, x=0, y=0)
 
 
 win.mainloop()
