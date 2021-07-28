@@ -1,87 +1,131 @@
-from tkinter import *
-from tkinter import ttk
-from tkinter import filedialog
+from tkinter import Tk, Label, Entry, StringVar, Button, Frame, filedialog, ttk
+from tkinter.constants import CENTER, DISABLED, W, LEFT
+from PIL import ImageTk, Image
+import requests
+from io import BytesIO
 import pafy
 
 win = Tk()
 win.title("Master Tube Downloader v1.0.0")
-win.geometry("400x400")
-win.columnconfigure(0, weight=1)
+win.iconbitmap('./icon.ico')
+
+win_width = 500
+win_height = 600
+screen_width = win.winfo_screenwidth()
+screen_height = win.winfo_screenheight()
+win.geometry(f"{win_width}x{win_height}+{int((screen_width/2)-(win_width/2))}+{int((screen_height/2)-(win_height/2))}")
+win.resizable(False, False)
 
 # Global Values
 path = ""
+yt = None
+yt_streams = None
+dl_enable = False
 
-# Choosing Path Functions
-def openPathDialog():
-	global path
-	path = filedialog.askdirectory()
-	if (len(path) > 1):
-		errSavePathMsgLabel.config(text=path, fg="green")
-	else:
-		errSavePathMsgLabel.config(text="Please Choose Location", fg="red")
+""" functions """
+def url_callback(value):
+	global dl_enable
+	global yt
+	global yt_streams
+	dl_enable = False
+	yt = None
+	yt_streams = None
+	url = value.get()
+	errMsgLabel.config(text="Video Not Found", fg='red')
+	overviewImageLabel.configure(image=None)
+	overviewImageLabel.image = None
+	overviewTitleLabel.config(text="")
+	overviewTimeLabel.config(text="")
+	qualitySelector.config(values=None, state=DISABLED)
+	if (len(url) > 10):
+		yt = pafy.new(url)
+		dl_enable = True
+		errMsgLabel.config(text="Video Found", fg='green')
+		overviewImage = ImageTk.PhotoImage(Image.open(requests.get(yt.thumb, stream=True).raw).resize((190, 140), Image.ANTIALIAS))
+		overviewImageLabel.configure(image=overviewImage)
+		overviewImageLabel.image = overviewImage
+		overviewTitleLabel.config(text=yt.title)
+		overviewTimeLabel.config(text=yt.duration)
 
-# Download
-def Download():
-	choise = qualitySelector.get()
-	url = youtubeInput.get()
-	if (len(url) > 1):
-		errMsgLabel.config(text="")
-		""""
-		yt = pafy.new("https://www.youtube.com/watch?v=eYpL-YMHjWw")
-		if (choise == qualityChoices[3]):
-			select = yt.streams.filter(progressive=True).first()
-		elif (choise == qualityChoices[0]):
-			select = yt.streams.filter(progressive=True, file_extension="mp4").last()
-		elif (choise == qualityChoices[4]):
-			select = yt.streams.filter(only_audio=True).first()
-		else:
-			errMsgLabel.config(text="Paste Link again!", fg="red")
+		videos = []
+		audios = []
+		print(yt.allstreams)
+		for i in range(0, len(yt.allstreams)):
+			if (yt.allstreams[i].extension == 'mp4' and videos.count(yt.allstreams[i].quality) == 0):
+				videos.append(yt.allstreams[i].quality)
+			elif (yt.allstreams[i].extension == 'mp3' or yt.allstreams[i].extension == 'm4a'):
+				if (audios.count(yt.allstreams[i].quality) == 0):
+					audios.append(yt.allstreams[i].quality)
 		
-		select.download(path)
-		errMsgLabel.config(text="Download Completed!", fg="greed")"""
+		print("=================================")
+		print(videos)
+		print("=================================")
+		print(audios)
+		print("=================================")
+		for i in audios:
+			videos.append(i)
+		print("=================================")
+		qualitySelector.config(values=videos, state='readonly')
+	else:
+		errMsgLabel.config(text="Please Enter a Url", fg='red')
+
+# Make Tabs
+tabControl = ttk.Notebook(win)
+mainTab = ttk.Frame(tabControl)
+downloadListTab = ttk.Frame(tabControl)
+tabControl.add(mainTab, text='Main')
+tabControl.add(downloadListTab, text='Downloads')
+tabControl.pack(expand=1, fill="both")
 
 
+""" mainTab Widgets """
 # YouTube Label
-youtubeLabel = Label(win, text="Enter Video Url:", font=("monospace", 15))
-youtubeLabel.grid()
+youtubeLabel = Label(mainTab, text="Enter Video Url:", font=("monospace", 15, "bold"))
+youtubeLabel.place(relx=0.5, anchor=CENTER, y=20)
 
 # YouTube Url Input
 youtubeInputVar = StringVar()
-youtubeInput = Entry(win, width=50, textvariable=youtubeInputVar)
-youtubeInput.grid()
+youtubeInputVar.trace("w", lambda name, index, mode, youtubeInputVar=youtubeInputVar: url_callback(youtubeInputVar))
+youtubeInput = Entry(mainTab, width=50, textvariable=youtubeInputVar)
+youtubeInput.place(relx=0.5, anchor=CENTER, y=50)
 
 # Error Message Label
-errMsgLabel = Label(win, text="", font=("monospace", 11))
-errMsgLabel.grid()
+errMsgLabel = Label(mainTab, font=("monospace", 11))
+errMsgLabel.place(relx=0.5, anchor=CENTER, y=75)
+
+# Video Overview
+overviewFrame = Frame(mainTab, bg="white", width=450, height=150)
+overviewFrame.place(relx=0.5, anchor=CENTER, y=170)
+overviewImageLabel = Label(overviewFrame, bg="lightgray", width=190, height=140, image=None)
+overviewImageLabel.place(rely=0.5, anchor=CENTER, x=100, width=190, height=140)
+overviewTitleLabel = Label(overviewFrame, wraplength=240, anchor=W, justify=LEFT)
+overviewTitleLabel.place(width=240, x=200, y=10)
+overviewTimeLabel = Label(overviewFrame, anchor=W, justify=LEFT, font=('monospace', 9, 'bold'))
+overviewTimeLabel.place(x=200, y=120)
 
 # Chosing Saving Path Label
-savePathLabel = Label(win, text="Save Location", font=("monospace", 15, "bold"))
-savePathLabel.grid()
+savePathLabel = Label(mainTab, text="Save Location", font=("monospace", 15, "bold"))
+savePathLabel.place(relx=0.5, anchor=CENTER, y=275)
 
 # Choosing Saving Path Button
-savePathButton = Button(win, text="Choose Location", width=10, bg="red", fg="white", command=openPathDialog)
-savePathButton.grid()
+savePathButton = Button(mainTab, text="Choose Location", bg="red", fg="white", font=("monospace", 9, "bold"))
+savePathButton.place(relx=0.5, anchor=CENTER, y=310)
 
 # Error Saving Path Message Label
-errSavePathMsgLabel = Label(win, text="", font=("monospace", 11))
-errSavePathMsgLabel.grid()
+errSavePathMsgLabel = Label(mainTab, text="", font=("monospace", 11))
+errSavePathMsgLabel.place(relx=0.5, anchor=CENTER, y=338)
 
 # Quality Label
-qualityLabel = Label(win, text="Select Quality", font=("monospace", 15))
-qualityLabel.grid()
+qualityLabel = Label(mainTab, text="Select Quality", font=("monospace", 15, "bold"))
+qualityLabel.place(relx=0.5, anchor=CENTER, y=370)
 
 # Quality Selector
-qualityChoices = ["144p", "360p", "480p", "720p", "Audio Only"]
-qualitySelector = ttk.Combobox(win, values=qualityChoices)
-qualitySelector.grid()
+qualitySelector = ttk.Combobox(mainTab, font=("monospace", 10), state=DISABLED)
+qualitySelector.place(relx=0.5, anchor=CENTER, y=400)
 
 # Download Button
-downloadButton = Button(win, text="Download", width=10, bg="red", fg="white", command=Download)
-downloadButton.grid()
-
-# Developer Label
-developerLabel = Label(win, text="Developer Label", font=("monospace", 15))
-developerLabel.grid()
+downloadButton = Button(mainTab, text="Download", bg="red", fg="white", font=("monospace", 13, "bold"))
+downloadButton.place(relx=0.5, anchor=CENTER, y=445)
 
 
 win.mainloop()
