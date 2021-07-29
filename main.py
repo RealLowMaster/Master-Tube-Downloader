@@ -1,6 +1,8 @@
 from tkinter import Tk, Label, Entry, StringVar, Button, Frame, Scrollbar, messagebox, filedialog, ttk
 from tkinter.constants import CENTER, DISABLED, END, W, LEFT
 from PIL import ImageTk, Image
+from os import mkdir, listdir, remove
+from os.path import isdir
 from threading import Thread
 import requests
 import pafy
@@ -23,6 +25,12 @@ yt_streams_index = None
 yt_quality_choises = None
 downloadList = []
 downloadListCounter = 0
+
+if (isdir('temp')):
+	for i in listdir('temp'):
+		remove('temp\\'+i)
+else:
+	mkdir('temp')
 
 """ functions """
 def bytesto(bytes, to, bsize=1024):
