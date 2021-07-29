@@ -3,6 +3,7 @@ from tkinter.constants import CENTER, DISABLED, END, W, LEFT
 from PIL import ImageTk, Image
 from os import mkdir, listdir, remove
 from os.path import isdir
+from moviepy.editor import VideoFileClip, AudioFileClip
 from threading import Thread
 import requests
 import pafy
@@ -21,6 +22,7 @@ win.resizable(False, False)
 # Global Values
 path = ""
 yt = None
+convert_video = False
 yt_streams_index = None
 yt_quality_choises = None
 downloadList = []
@@ -50,6 +52,7 @@ def get_youtube():
 	global yt
 	global yt_streams_index
 	global yt_quality_choises
+	global convert_video
 	yt = None
 	yt_streams_index = None
 	yt_quality_choises = None
@@ -75,8 +78,11 @@ def get_youtube():
 			videos_index = []
 			audios = []
 			audios_index = []
+			video_type = 'normal'
+			if convert_video:
+				video_type = 'video'
 			for i in range(0, len(yt.allstreams)):
-				if (yt.allstreams[i].mediatype == 'normal' and yt.allstreams[i].extension == 'mp4'):
+				if (yt.allstreams[i].mediatype == video_type and yt.allstreams[i].extension == 'mp4'):
 					if (videos.count('Video: '+yt.allstreams[i].quality+'p') == 0):
 						videos.append('Video: '+yt.allstreams[i].quality+'p')
 						videos_index.append(i)
@@ -117,17 +123,39 @@ def chooseLoaction():
 	else:
 		errSavePathMsgLabel.config(text='Please Choose a Location.', fg='red')
 
-def yt_dl_callback(total, recvd, ratio, rate, eta):
-	print(total, recvd, ratio, rate, eta)
+def yt_dl_callback(total_size, dl_size, percent, dl_speed, tokhmam):
+	pass
 
 def Download():
 	global downloadListCounter
+	global convert_video
 	index = yt_quality_choises.index(qualitySelector.get())
-	downloadList.append([yt, yt_streams_index[index], path])
-	downloadListWidget.insert(parent='', index=END, iid=downloadListCounter, values=(yt.title, yt_quality_choises[index], str(bytesto(yt.allstreams[yt_streams_index[index]].get_filesize(), 'm'))+'mb', 0, 0, 0))
-	downloadListCounter += 1
-	yt.allstreams[yt_streams_index[index]].download(filepath=path)
-	#downloadList[0][0].allstreams[yt_streams_index[index]].download(filepath=path, quiet=True, remux_audio=True, callback=yt_dl_callback)
+	if 'Audio' in qualitySelector.get():
+		downloadList.append([yt, yt_streams_index[index], path, convert_video, False])
+	else:
+		downloadList.append([yt, yt_streams_index[index], path, convert_video, True])
+	
+	if (downloadList[0][3] and downloadList[0][4]):
+		downloadListWidget.insert(parent='', index=END, iid=downloadListCounter, values=(yt.title, yt_quality_choises[index], str(bytesto((yt.allstreams[yt_streams_index[index]].get_filesize() + yt.getbestaudio().get_filesize()), 'm'))+'mb', 0, 0, 0))
+		downloadListCounter += 1
+		downloadList[0][0].allstreams[downloadList[0][1]].download(filepath='temp', quiet=True, callback=yt_dl_callback)
+		downloadList[0][0].getbestaudio().download(filepath='temp', quiet=True, callback=yt_dl_callback)
+		video_name = None
+		audio_name = None
+		for i in listdir('temp'):
+			if '.mp4' in i:
+				video_name = i
+			else:
+				audio_name = i
+		
+		videoclip = VideoFileClip('./temp/'+video_name)
+		audioclip = AudioFileClip('./temp/'+audio_name)
+		videoclip.audio = audioclip
+		videoclip.write_videofile(downloadList[0][2]+'\\'+video_name)
+	else:
+		downloadListWidget.insert(parent='', index=END, iid=downloadListCounter, values=(yt.title, yt_quality_choises[index], str(bytesto(yt.allstreams[yt_streams_index[index]].get_filesize(), 'm'))+'mb', 0, 0, 0))
+		downloadListCounter += 1
+		downloadList[0][0].allstreams[downloadList[0][1]].download(filepath=path, quiet=True, callback=yt_dl_callback)
 
 def dl_button_callback():
 	if (len(path) > 3):
