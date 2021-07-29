@@ -1,7 +1,7 @@
-from threading import Thread
 from tkinter import Tk, Label, Entry, StringVar, Button, Frame, Scrollbar, messagebox, filedialog, ttk
 from tkinter.constants import CENTER, DISABLED, END, W, LEFT
 from PIL import ImageTk, Image
+from threading import Thread
 import requests
 import pafy
 
@@ -41,7 +41,7 @@ def get_youtube():
 	yt_streams_index = None
 	yt_quality_choises = None
 	url = youtubeInput.get()
-	errMsgLabel.config(text="Video Not Found or There is no Format For it", fg='red')
+	errMsgLabel.config(text="Waiting", fg='orange')
 	overviewImageLabel.configure(image=None)
 	overviewImageLabel.image = None
 	overviewTitleLabel.config(text="")
@@ -49,42 +49,53 @@ def get_youtube():
 	qualitySelector.config(values=None, state=DISABLED)
 	downloadButton.config(state=DISABLED)
 	if (len(url) > 10):
-		yt = pafy.new(url)
-		errMsgLabel.config(text="Video Found", fg='green')
-		overviewImage = ImageTk.PhotoImage(Image.open(requests.get(yt.thumb, stream=True).raw).resize((190, 140), Image.ANTIALIAS))
-		overviewImageLabel.configure(image=overviewImage)
-		overviewImageLabel.image = overviewImage
-		overviewTitleLabel.config(text=yt.title)
-		overviewTimeLabel.config(text=yt.duration)
+		youtubeInput.config(state=DISABLED)
+		try:
+			yt = pafy.new(url)
+			youtubeInput.config(state='normal')
+			errMsgLabel.config(text="Video Found", fg='green')
+			overviewImage = ImageTk.PhotoImage(Image.open(requests.get(yt.thumb, stream=True).raw).resize((190, 140), Image.ANTIALIAS))
+			overviewImageLabel.configure(image=overviewImage)
+			overviewImageLabel.image = overviewImage
+			overviewTitleLabel.config(text=yt.title)
+			overviewTimeLabel.config(text=yt.duration)
 
-		videos = []
-		videos_index = []
-		audios = []
-		audios_index = []
-		for i in range(0, len(yt.allstreams)):
-			if (yt.allstreams[i].extension == 'mp4' and videos.count('Video: '+yt.allstreams[i].quality+'p') == 0):
-				videos.append('Video: '+yt.allstreams[i].quality+'p')
-				videos_index.append(i)
-			elif (yt.allstreams[i].extension == 'mp3' or yt.allstreams[i].extension == 'm4a'):
-				if (audios.count('Audio: '+yt.allstreams[i].quality) == 0):
-					audios.append('Audio: '+yt.allstreams[i].quality)
-					audios_index.append(i)
-		
-		for i in range(0, len(audios)):
-			videos.append(audios[i])
-			videos_index.append(audios_index[i])
-		
-		yt_quality_choises = videos
-		yt_streams_index = videos_index
-		qualitySelector.config(values=videos, state='readonly')
-		downloadButton.config(state='normal')
+			videos = []
+			videos_index = []
+			audios = []
+			audios_index = []
+			for i in range(0, len(yt.allstreams)):
+				if (yt.allstreams[i].extension == 'mp4' and videos.count('Video: '+yt.allstreams[i].quality+'p') == 0):
+					videos.append('Video: '+yt.allstreams[i].quality+'p')
+					videos_index.append(i)
+				elif (yt.allstreams[i].extension == 'mp3' or yt.allstreams[i].extension == 'm4a'):
+					if (audios.count('Audio: '+yt.allstreams[i].quality) == 0):
+						audios.append('Audio: '+yt.allstreams[i].quality)
+						audios_index.append(i)
+			
+			for i in range(0, len(audios)):
+				videos.append(audios[i])
+				videos_index.append(audios_index[i])
+			
+			yt_quality_choises = videos
+			yt_streams_index = videos_index
+			qualitySelector.config(values=videos, state='readonly')
+			downloadButton.config(state='normal')
+		except Exception as err:
+			youtubeInput.config(state='normal')
+			err = str(err)
+			if 'Need 11 character' in err:
+				errMsgLabel.config(text="Please Enter a currect Url", fg='red')
+			elif 'Video unavailable' in err:
+				errMsgLabel.config(text="Video not Found", fg='red')
+			else:
+				errMsgLabel.config(text="Video not Found or there is no format for it", fg='red')
+
 	else:
-		errMsgLabel.config(text="Please Enter a Url", fg='red')
+		errMsgLabel.config(text="Please Enter a currect Url", fg='red')
 
 def input_callback():
-	t = Thread(target=get_youtube)
-	t.daemon = True
-	t.start()
+	Thread(target=get_youtube).start()
 
 def chooseLoaction():
 	global path
@@ -102,7 +113,7 @@ def Download():
 			index = yt_quality_choises.index(qualitySelector.get())
 			downloadList.append([yt, yt_streams_index[index], path])
 			downloadListWidget.insert(parent='', index=END, iid=downloadListCounter, values=(yt.title, yt_quality_choises[index], bytesto(yt.allstreams[yt_streams_index[index]].get_filesize(), 'm')))
-			yt.allstreams[yt_streams_index[index]].download(filepath=path)
+			#yt.allstreams[yt_streams_index[index]].download(filepath=path)
 			downloadListCounter += 1
 		else:
 			messagebox.showerror(title="Quality Error!", message="Please Choose a Quality.")
