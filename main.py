@@ -2,7 +2,7 @@ from tkinter import Tk, Label, Entry, StringVar, Button, Frame, Scrollbar, messa
 from tkinter.constants import CENTER, DISABLED, END, W, LEFT
 from PIL import ImageTk, Image
 from os import mkdir, listdir, remove
-from os.path import isdir
+from os.path import isdir, isfile
 from moviepy.editor import VideoFileClip, AudioFileClip
 from threading import Thread
 import requests
@@ -149,17 +149,12 @@ def start_dl():
 		downloading = True
 		if (downloadList[0][3] and downloadList[0][4]):
 			# Start Downloading
-			downloadList[0][0].allstreams[downloadList[0][1]].download(filepath='temp', quiet=True, callback=yt_dl_callback)
-			downloadList[0][0].getbestaudio().download(filepath='temp', quiet=True, callback=yt_dl_callback)
-			
-			# Get Downloaded Temp Audio and Video File Name
-			video_name = None
-			audio_name = None
-			for i in listdir('temp'):
-				if '.mp4' in i:
-					video_name = i
-				else:
-					audio_name = i
+			video_stream = downloadList[0][0].allstreams[downloadList[0][1]]
+			audio_stream = downloadList[0][0].getbestaudio()
+			video_name = video_stream.generate_filename()
+			audio_name = audio_stream.generate_filename()
+			video_stream.download(filepath='temp', quiet=True, callback=yt_dl_callback)
+			audio_stream.download(filepath='temp', quiet=True, callback=yt_dl_callback)
 			
 			# Start Combining Audio With Video
 			videoclip = VideoFileClip('./temp/'+video_name)
@@ -176,7 +171,16 @@ def start_dl():
 			Thread(target=start_dl).start()
 		else:
 			# Start Downloading
-			downloadList[0][0].allstreams[downloadList[0][1]].download(filepath=path, quiet=True, callback=yt_dl_callback)
+			stream = downloadList[0][0].allstreams[downloadList[0][1]]
+			name = stream.generate_filename()
+			if (isfile(downloadList[0][2]+'\\'+name)):
+				pass
+			elif (isfile(downloadList[0][2]+'\\'+name+'.part')):
+				remove(downloadList[0][2]+'\\'+name+'.part')
+				stream.download(filepath=downloadList[0][2], quiet=True, callback=yt_dl_callback)
+			else:
+				stream.download(filepath=downloadList[0][2], quiet=True, callback=yt_dl_callback)
+			
 			downloadListWidget.delete(downloadList[0][8])
 			downloadList.pop(0)
 			downloading = False
