@@ -68,13 +68,15 @@ def get_youtube():
 			audios = []
 			audios_index = []
 			for i in range(0, len(yt.allstreams)):
-				if (yt.allstreams[i].extension == 'mp4' and videos.count('Video: '+yt.allstreams[i].quality+'p') == 0):
-					videos.append('Video: '+yt.allstreams[i].quality+'p')
-					videos_index.append(i)
-				elif (yt.allstreams[i].extension == 'mp3' or yt.allstreams[i].extension == 'm4a'):
-					if (audios.count('Audio: '+yt.allstreams[i].quality) == 0):
-						audios.append('Audio: '+yt.allstreams[i].quality)
-						audios_index.append(i)
+				if (yt.allstreams[i].mediatype == 'normal' and yt.allstreams[i].extension == 'mp4'):
+					if (videos.count('Video: '+yt.allstreams[i].quality+'p') == 0):
+						videos.append('Video: '+yt.allstreams[i].quality+'p')
+						videos_index.append(i)
+					else:
+						videos_index[videos.index('Video: '+yt.allstreams[i].quality+'p')] = i
+				elif (yt.allstreams[i].mediatype == 'audio' and yt.allstreams[i].extension == 'mp3' or yt.allstreams[i].extension == 'm4a'):
+					audios.append('Audio: '+yt.allstreams[i].extension+' '+yt.allstreams[i].quality)
+					audios_index.append(i)
 			
 			for i in range(0, len(audios)):
 				videos.append(audios[i])
@@ -93,7 +95,6 @@ def get_youtube():
 				errMsgLabel.config(text="Video not Found", fg='red')
 			else:
 				errMsgLabel.config(text="Video not Found or there is no format for it", fg='red')
-
 	else:
 		errMsgLabel.config(text="Please Enter a currect Url", fg='red')
 
@@ -108,16 +109,23 @@ def chooseLoaction():
 	else:
 		errSavePathMsgLabel.config(text='Please Choose a Location.', fg='red')
 
+def yt_dl_callback(total, recvd, ratio, rate, eta):
+	print(total, recvd, ratio, rate, eta)
+
 def Download():
+	global downloadListCounter
+	index = yt_quality_choises.index(qualitySelector.get())
+	downloadList.append([yt, yt_streams_index[index], path])
+	downloadListWidget.insert(parent='', index=END, iid=downloadListCounter, values=(yt.title, yt_quality_choises[index], str(bytesto(yt.allstreams[yt_streams_index[index]].get_filesize(), 'm'))+'mb', 0, 0, 0))
+	downloadListCounter += 1
+	yt.allstreams[yt_streams_index[index]].download(filepath=path)
+	#downloadList[0][0].allstreams[yt_streams_index[index]].download(filepath=path, quiet=True, remux_audio=True, callback=yt_dl_callback)
+
+def dl_button_callback():
 	if (len(path) > 3):
 		choosed = yt_quality_choises.count(qualitySelector.get())
 		if (choosed == 1):
-			global downloadListCounter
-			index = yt_quality_choises.index(qualitySelector.get())
-			downloadList.append([yt, yt_streams_index[index], path])
-			downloadListWidget.insert(parent='', index=END, iid=downloadListCounter, values=(yt.title, yt_quality_choises[index], str(bytesto(yt.allstreams[yt_streams_index[index]].get_filesize(), 'm'))+'mb', 0, 0, 0))
-			#yt.allstreams[yt_streams_index[index]].download(filepath=path)
-			downloadListCounter += 1
+			Thread(target=Download).start()
 		else:
 			messagebox.showerror(title="Quality Error!", message="Please Choose a Quality.")
 	else:
@@ -178,7 +186,7 @@ qualitySelector = ttk.Combobox(mainTab, font=("monospace", 10), state=DISABLED)
 qualitySelector.place(relx=0.5, anchor=CENTER, y=400)
 
 # Download Button
-downloadButton = Button(mainTab, text="Download", bg="red", fg="white", font=("monospace", 13, "bold"), state=DISABLED, command=Download)
+downloadButton = Button(mainTab, text="Download", bg="red", fg="white", font=("monospace", 13, "bold"), state=DISABLED, command=dl_button_callback)
 downloadButton.place(relx=0.5, anchor=CENTER, y=445)
 
 """ downloadListTab Tab Widgets """
