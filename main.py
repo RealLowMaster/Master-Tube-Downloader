@@ -33,6 +33,11 @@ def bytesto(bytes, to, bsize=1024):
 
 	return int(r)
 
+def set_thumb():
+	overviewImage = ImageTk.PhotoImage(Image.open(requests.get(yt.thumb, stream=True).raw).resize((190, 140), Image.ANTIALIAS))
+	overviewImageLabel.configure(image=overviewImage)
+	overviewImageLabel.image = overviewImage
+
 def get_youtube():
 	global yt
 	global yt_streams_index
@@ -54,9 +59,7 @@ def get_youtube():
 			yt = pafy.new(url)
 			youtubeInput.config(state='normal')
 			errMsgLabel.config(text="Video Found", fg='green')
-			overviewImage = ImageTk.PhotoImage(Image.open(requests.get(yt.thumb, stream=True).raw).resize((190, 140), Image.ANTIALIAS))
-			overviewImageLabel.configure(image=overviewImage)
-			overviewImageLabel.image = overviewImage
+			Thread(target=set_thumb).start()
 			overviewTitleLabel.config(text=yt.title)
 			overviewTimeLabel.config(text=yt.duration)
 
