@@ -115,7 +115,7 @@ def Download():
 			global downloadListCounter
 			index = yt_quality_choises.index(qualitySelector.get())
 			downloadList.append([yt, yt_streams_index[index], path])
-			downloadListWidget.insert(parent='', index=END, iid=downloadListCounter, values=(yt.title, yt_quality_choises[index], bytesto(yt.allstreams[yt_streams_index[index]].get_filesize(), 'm')))
+			downloadListWidget.insert(parent='', index=END, iid=downloadListCounter, values=(yt.title, yt_quality_choises[index], str(bytesto(yt.allstreams[yt_streams_index[index]].get_filesize(), 'm'))+'mb', 0, 0, 0))
 			#yt.allstreams[yt_streams_index[index]].download(filepath=path)
 			downloadListCounter += 1
 		else:
@@ -199,13 +199,19 @@ downloadListHorizontalScrollbar.config(command=downloadListWidget.xview)
 
 # Set Download List Columns
 downloadListWidget['show'] = 'headings'
-downloadListWidget['columns'] = ('Name', 'Quality', 'Size')
-downloadListWidget.column('Name', minwidth=25, width=100)
-downloadListWidget.column('Quality', minwidth=25)
-downloadListWidget.column('Size', minwidth=5, width=25)
+downloadListWidget['columns'] = ('Name', 'Quality', 'Size', 'Status', 'LeftTime', 'Speed')
+downloadListWidget.column('Name', minwidth=25, width=110)
+downloadListWidget.column('Quality', minwidth=25, width=80)
+downloadListWidget.column('Size', minwidth=10, width=30)
+downloadListWidget.column('Status', minwidth=10, width=30)
+downloadListWidget.column('LeftTime', minwidth=10, width=30)
+downloadListWidget.column('Speed', minwidth=10, width=30)
 downloadListWidget.heading('Name', text='Name')
 downloadListWidget.heading('Quality', text='Quality')
 downloadListWidget.heading('Size', text='Size')
+downloadListWidget.heading('Status', text='Status')
+downloadListWidget.heading('LeftTime', text='Left Time')
+downloadListWidget.heading('Speed', text='Speed')
 downloadListWidget.place(width=480, height=400, x=0, y=0)
 
 
